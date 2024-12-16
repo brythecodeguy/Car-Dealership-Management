@@ -94,33 +94,49 @@
     <div class="container">
         <h2>Sell a Car</h2>
         <form action="CarSaleServlet" method="post">
-            <!-- customer info -->
+            <!-- Customer Information -->
             <fieldset>
                 <legend>Customer Information</legend>
-                <div class="form-group">
-                    <label for="customerId">Customer ID:</label>
-                    <input type="text" id="customerId" name="customerId" placeholder="Enter Customer ID" required>
-                </div>
                 <div class="form-group">
                     <label for="firstName">First Name:</label>
                     <input type="text" id="firstName" name="firstName" placeholder="Enter First Name" required>
                 </div>
                 <div class="form-group">
+                    <label for="middleInitial">Middle Initial:</label>
+                    <input type="text" id="middleInitial" name="middleInitial" maxlength="1" placeholder="Enter Middle Initial">
+                </div>
+                <div class="form-group">
                     <label for="lastName">Last Name:</label>
                     <input type="text" id="lastName" name="lastName" placeholder="Enter Last Name" required>
                 </div>
+                <div class="form-group">
+                    <label for="phoneNumber">Phone Number:</label>
+                    <input type="text" id="phoneNumber" name="phoneNumber" placeholder="Enter Phone Number" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" placeholder="Enter Email Address" required>
+                </div>
+                <div class="form-group">
+    				<label for="aptNumber">Apartment Number (Optional):</label>
+    				<input type="text" id="aptNumber" name="aptNumber" placeholder="Enter Apartment Number">
+				</div>
+				<div class="form-group">
+    				<label for="streetNumber">Street Address:</label>
+   					 <input type="text" id="streetNumber" name="streetNumber" placeholder="Enter Street Address" required>
+				</div>
+                <div class="form-group">
+                    <label for="city">City:</label>
+                    <input type="text" id="city" name="city" placeholder="Enter City" required>
+                </div>
             </fieldset>
-            
-            <!-- vehicle info -->
+
+            <!-- Vehicle Information -->
             <fieldset>
                 <legend>Vehicle Information</legend>
                 <div class="form-group">
                     <label for="carId">Car ID:</label>
                     <input type="text" id="carId" name="carId" placeholder="Enter Car ID" required>
-                </div>
-                <div class="form-group">
-                    <label for="carModel">Car Model:</label>
-                    <input type="text" id="carModel" name="carModel" placeholder="Enter Car Model" required>
                 </div>
                 <div class="form-group">
                     <label for="salePrice">Sale Price ($):</label>
@@ -131,10 +147,11 @@
                     <input type="date" id="purchaseDate" name="purchaseDate" required>
                 </div>
             </fieldset>
-            
-            <!-- submit action -->
+
+            <!-- Actions -->
             <div class="form-actions">
                 <button type="submit">Submit Sale</button>
+                 <button type="button" onclick="location.href='GenerateBillServlet?carId=' + document.getElementById('carId').value;">View Bill</button>
             </div>
         </form>
     </div>

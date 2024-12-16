@@ -1,3 +1,4 @@
+<%@ page import="java.util.List, java.util.Map" %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -84,7 +85,7 @@
     </style>
 </head>
 <body>
-    <header>Car Dealership Management - Sales Statistics</header>
+     <header>Car Dealership Management - Sales Statistics</header>
     <nav>
         <a href="Index.jsp">Home</a>
         <a href="CarSale.jsp">Car Sale</a>
@@ -92,33 +93,47 @@
         <a href="SaleStatistics.jsp">Sales Statistics</a>
     </nav>
     <div class="container">
-        <h2>Generate Sales Statistics</h2>
+        <h2>Sales Statistics</h2>
         <form action="SaleStatisticsServlet" method="post">
-            <!-- filtering criteria-->
-            <fieldset>
-                <legend>Filter Criteria</legend>
-                <div class="form-group">
-                    <label for="startDate">Start Date:</label>
-                    <input type="date" id="startDate" name="startDate" required>
-                </div>
-                <div class="form-group">
-                    <label for="endDate">End Date:</label>
-                    <input type="date" id="endDate" name="endDate" required>
-                </div>
-                <div class="form-group">
-                    <label for="make">Car Make:</label>
-                    <input type="text" id="make" name="make" placeholder="Enter Car Make (Optional)">
-                </div>
-                <div class="form-group">
-                    <label for="model">Car Model:</label>
-                    <input type="text" id="model" name="model" placeholder="Enter Car Model (Optional)">
-                </div>
-            </fieldset>
-            <!-- Actions -->
-            <div class="form-actions">
-                <button type="submit">Generate Statistics</button>
-            </div>
+            <label for="year">Filter by Year:</label>
+            <input type="number" id="year" name="year" placeholder="Enter Year">
+            <button type="submit">Filter</button>
         </form>
+        <table>
+            <thead>
+                <tr>
+                    <th>Year of Sale</th>
+                    <th>Make</th>
+                    <th>Model</th>
+                    <th>Year</th>
+                    <th>Profit ($)</th>
+                    <th>Number of Cars Sold</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% 
+                    List<Map<String, Object>> stats = (List<Map<String, Object>>) request.getAttribute("salesStats");
+                    if (stats != null && !stats.isEmpty()) {
+                        for (Map<String, Object> stat : stats) {
+                %>
+                <tr>
+                    <td><%= stat.get("year_of_sale") %></td>
+                    <td><%= stat.get("make") %></td>
+                    <td><%= stat.get("model") %></td>
+                    <td><%= stat.get("year") %></td>
+                    <td><%= stat.get("profit") %></td>
+                    <td><%= stat.get("number_of_cars_sold") %></td>
+                </tr>
+                <% 
+                        }
+                    } else { 
+                %>
+                <tr>
+                    <td colspan="6">No sales data available</td>
+                </tr>
+                <% } %>
+            </tbody>
+        </table>
     </div>
 </body>
 </html>

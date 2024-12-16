@@ -5,116 +5,83 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.RequestDispatcher;
 
 import java.io.IOException;
-import java.sql.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 
 @WebServlet("/RenderServiceServlet")
 public class RenderServiceServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
-    // URI connection
     private static final String DB_URI = "jdbc:postgresql://db.trakaslnzfwzndivozdm.supabase.co:5432/postgres?user=postgres&password=E0q6p0Eal2b8xLLq";
 
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String appointmentId = request.getParameter("appointmentId");
-        String taskId = request.getParameter("taskId");
-        String laborCost = request.getParameter("laborCost");
-        String time = request.getParameter("time");
-        String partId = request.getParameter("partId");
+        String[] taskIds = request.getParameterValues("taskIds");
+        String[] partIds = request.getParameterValues("partIds");
+        String dropOff = request.getParameter("dropOff");
+        String pickUp = request.getParameter("pickUp");
 
-        if (appointmentId == null || appointmentId.isEmpty()) {
-            response.getWriter().println("Error: Appointment ID is required.");
-            return;
-        }
+        try (Connection conn = DriverManager.getConnection(DB_URI)) {
+            conn.setAutoCommit(false);
 
-        Connection conn =null;
-        PreparedStatement stmt = null;
-
-        try {
-            conn = DriverManager.getConnection(DB_URI);
-
-            // insert task performed
-            String insertTask = "INSERT INTO task_performed (appointment_id, task_id, labor_cost, time) VALUES (?, ?, ?, ?::INTERVAL)";
-            stmt = conn.prepareStatement(insertTask);
-            stmt.setInt(1, Integer.parseInt(appointmentId));
-            stmt.setInt(2, Integer.parseInt(taskId));
-            stmt.setDouble(3, Double.parseDouble(laborCost));
-            stmt.setString(4, time); // Pass time as a String like "1 hour" or "30 minutes"
-            stmt.executeUpdate();
-
-            // insert part replaced
-            String insertPart = "INSERT INTO part_replaced (appointment_id, part_id) VALUES (?, ?)";
-            stmt = conn.prepareStatement(insertPart);
-            stmt.setInt(1, Integer.parseInt(appointmentId));
-            stmt.setInt(2, Integer.parseInt(partId));
-            stmt.executeUpdate();
-
-            // fetch task performed from database for invoice
-            String taskQuery = "SELECT t.name, tp.labor_cost, tp.time FROM task_performed tp JOIN task t ON tp.task_id = t.task_id WHERE tp.appointment_id = ?";
-            stmt = conn.prepareStatement(taskQuery);
-            stmt.setInt(1, Integer.parseInt(appointmentId));
-            ResultSet taskResults = stmt.executeQuery();
-
-            List<Map<String, Object>> taskList = new ArrayList<>();
-            double totalLaborCost = 0;
-            while (taskResults.next()) {
-                Map<String, Object> task = new HashMap<>();
-                task.put("name", taskResults.getString("name"));
-                task.put("labor_cost", taskResults.getDouble("labor_cost"));
-                task.put("time", taskResults.getString("time"));
-                taskList.add(task);
-                totalLaborCost += taskResults.getDouble("labor_cost");
+            // Update drop_off and pick_up in the appointment table
+            String updateAppointmentSQL = "UPDATE appointment SET drop_off = ?, pick_up = ? WHERE appointment_id = ?";
+            try (PreparedStatement updateStmt = conn.prepareStatement(updateAppointmentSQL)) {
+                updateStmt.setTimestamp(1, Timestamp.valueOf(dropOff));
+                updateStmt.setTimestamp(2, Timestamp.valueOf(pickUp));
+                updateStmt.setInt(3, Integer.parseInt(appointmentId));
+                updateStmt.executeUpdate();
             }
 
-            // fetch part replaced from database for invoice
-            String partQuery = "SELECT p.name, p.cost_of_part FROM part p JOIN part_replaced pr ON p.part_id = pr.part_id WHERE pr.appointment_id = ?";
-            stmt = conn.prepareStatement(partQuery);
-            stmt.setInt(1, Integer.parseInt(appointmentId));
-            ResultSet partResults = stmt.executeQuery();
-
-            List<Map<String, Object>> partList = new ArrayList<>();
-            double totalPartsCost = 0;
-            while (partResults.next()) {
-                Map<String, Object> part = new HashMap<>();
-                part.put("name", partResults.getString("name"));
-                part.put("cost", partResults.getDouble("cost_of_part"));
-                partList.add(part);
-                totalPartsCost += partResults.getDouble("cost_of_part");
+            // Insert tasks into task_appointment table
+            String insertTaskSQL = "INSERT INTO task_performed (appointment_id, task_id, labor_cost) VALUES (?, ?, ?)";
+            try (PreparedStatement taskStmt = conn.prepareStatement(insertTaskSQL)) {
+                for (String taskId : taskIds) {
+                    double laborCost = fetchLaborCost(taskId, conn);
+                    taskStmt.setInt(1, Integer.parseInt(appointmentId));
+                    taskStmt.setInt(2, Integer.parseInt(taskId));
+                    taskStmt.setDouble(3, laborCost); // Use setDouble for labor_cost
+                    taskStmt.addBatch();
+                }
+                taskStmt.executeBatch();
             }
 
-            // grandtotal calculation
-            double grandTotal = totalLaborCost + totalPartsCost;
+            // Insert parts into part_appointment table
+            String insertPartSQL = "INSERT INTO part_replaced (appointment_id, part_id) VALUES (?, ?)";
+            try (PreparedStatement partStmt = conn.prepareStatement(insertPartSQL)) {
+                for (String partId : partIds) {
+                    partStmt.setInt(1, Integer.parseInt(appointmentId));
+                    partStmt.setInt(2, Integer.parseInt(partId));
+                    partStmt.addBatch();
+                }
+                partStmt.executeBatch();
+            }
 
-            // attributes for JSP
-            request.setAttribute("taskList", taskList);
-            request.setAttribute("partList", partList);
-            request.setAttribute("totalLaborCost", totalLaborCost);
-            request.setAttribute("totalPartsCost", totalPartsCost);
-            request.setAttribute("grandTotal", grandTotal);
-
-            // to invoice.jsp
-            RequestDispatcher dispatcher = request.getRequestDispatcher("Invoice.jsp");
-            dispatcher.forward(request, response);
-
-        } catch (SQLException e) {
+            conn.commit();
+            response.getWriter().println("Service successfully rendered!");
+        } catch (Exception e) {
             e.printStackTrace();
-            response.getWriter().println("Error rendering service or generating invoice: " + e.getMessage());
-        } finally {
-            try {
-                if (stmt != null) stmt.close();
-                if (conn != null) conn.close();
-            } catch (SQLException ex) {
-                ex.printStackTrace();
+            response.getWriter().println("Error rendering service: " + e.getMessage());
+        }
+    }
+
+    private double fetchLaborCost(String taskId, Connection conn) throws SQLException {
+        String query = "SELECT estd_labor_cost FROM task WHERE task_id = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, Integer.parseInt(taskId));
+            try (var rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("estd_labor_cost"); // Fetch labor cost as double
+                } else {
+                    throw new SQLException("Task ID " + taskId + " not found.");
+                }
             }
         }
     }
 }
-

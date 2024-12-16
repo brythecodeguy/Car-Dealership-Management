@@ -1,91 +1,60 @@
-<%@ page import="java.util.List, java.util.Map" %>
+<%@ page import="java.util.Map" %>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Invoice</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            margin: 0;
+            padding: 20px;
+            background-color: #f9f9f9;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
+        h1, h2 {
+            color: #0078d7;
         }
-        table, th, td {
-            border: 1px solid black;
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            margin: auto;
         }
-        th, td {
-            padding: 10px;
-            text-align: left;
+        .highlight {
+            font-weight: bold;
+            color: #005bb5;
         }
-        th {
-            background-color: #f2f2f2;
+        p {
+            margin: 10px 0;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <h1>Service Invoice</h1>
+    <div class="container">
+        <h1>Invoice</h1>
+    <% Map<String, Object> invoiceData = (Map<String, Object>) request.getAttribute("invoiceData"); %>
+
+    <h2>Details</h2>
+    <p><strong>Appointment ID:</strong> <%= invoiceData.get("appointmentId") %></p>
+    <p><strong>Drop Off:</strong> <%= invoiceData.get("dropOff") %></p>
+    <p><strong>Pick Up:</strong> <%= invoiceData.get("pickUp") %></p>
 
     <h2>Tasks Performed</h2>
-    <%
-        List<Map<String, Object>> taskList = (List<Map<String, Object>>) request.getAttribute("taskList");
-        if (taskList != null && !taskList.isEmpty()) {
-    %>
-    <table>
-        <tr>
-            <th>Task Name</th>
-            <th>Labor Cost</th>
-            <th>Time Taken</th>
-        </tr>
-        <% for (Map<String, Object> task : taskList) { %>
-        <tr>
-            <td><%= task.get("name") %></td>
-            <td>$<%= task.get("labor_cost") %></td>
-            <td><%= task.get("time") %></td>
-        </tr>
-        <% } %>
-    </table>
-    <% } else { %>
-        <p>No tasks performed for this appointment.</p>
-    <% } %>
+    <p><%= invoiceData.get("tasksPerformed") %></p>
 
     <h2>Parts Replaced</h2>
-    <%
-        List<Map<String, Object>> partList = (List<Map<String, Object>>) request.getAttribute("partList");
-        if (partList != null && !partList.isEmpty()) {
-    %>
-    <table>
-        <tr>
-            <th>Part Name</th>
-            <th>Cost</th>
-        </tr>
-        <% for (Map<String, Object> part : partList) { %>
-        <tr>
-            <td><%= part.get("name") %></td>
-            <td>$<%= part.get("cost") %></td>
-        </tr>
-        <% } %>
-    </table>
-    <% } else { %>
-        <p>No parts replaced for this appointment.</p>
-    <% } %>
+    <p><%= invoiceData.get("partsReplaced") %></p>
 
-    <h2>Total Costs</h2>
-    <table>
-        <tr>
-            <th>Labor Cost</th>
-            <td>$<%= request.getAttribute("totalLaborCost") %></td>
-        </tr>
-        <tr>
-            <th>Parts Cost</th>
-            <td>$<%= request.getAttribute("totalPartsCost") %></td>
-        </tr>
-        <tr>
-            <th>Grand Total</th>
-            <td><strong>$<%= request.getAttribute("grandTotal") %></strong></td>
-        </tr>
-    </table>
+    <h2>Cost Breakdown</h2>
+    <p><strong>Total Labor Cost:</strong> $<%= invoiceData.get("totalLaborCost") %></p>
+    <p><strong>Total Part Cost:</strong> $<%= invoiceData.get("totalPartCost") %></p>
+    <p><strong>Total Invoice Cost:</strong> $<%= invoiceData.get("totalInvoiceCost") %></p>
+    </div>
 </body>
 </html>

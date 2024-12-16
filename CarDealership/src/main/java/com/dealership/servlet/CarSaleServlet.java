@@ -7,92 +7,94 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 
 @WebServlet("/CarSaleServlet")
 public class CarSaleServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
+
+    // Database connection details
     private static final String DB_URI = "jdbc:postgresql://db.trakaslnzfwzndivozdm.supabase.co:5432/postgres?user=postgres&password=E0q6p0Eal2b8xLLq";
+
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        String customerId = request.getParameter("customerId");
+        // Retrieve customer information from the form
         String firstName = request.getParameter("firstName");
+        String middleInitial = request.getParameter("middleInitial");
         String lastName = request.getParameter("lastName");
+        String phoneNumber = request.getParameter("phoneNumber");
+        String email = request.getParameter("email");
+        String aptNumber = request.getParameter("aptNumber");
+        String streetNumber = request.getParameter("streetNumber");
+        String city = request.getParameter("city");
+
+        // Retrieve vehicle and sale information from the form
         String carId = request.getParameter("carId");
-        String carModel = request.getParameter("carModel");
         String salePrice = request.getParameter("salePrice");
         String purchaseDate = request.getParameter("purchaseDate");
 
         try (Connection conn = DriverManager.getConnection(DB_URI)) {
-            conn.setAutoCommit(false); // Enable transaction
+            conn.setAutoCommit(false); // Enable transaction management
 
-            // insert customer
-            String insertCustomer = "INSERT INTO customer (customer_id, f_name, l_name) VALUES (?, ?, ?) ON CONFLICT (customer_id) DO NOTHING";
-            try (PreparedStatement ps = conn.prepareStatement(insertCustomer)) {
-                ps.setInt(1, Integer.parseInt(customerId));
-                ps.setString(2, firstName);
-                ps.setString(3, lastName);
-                ps.executeUpdate();
-            }
+            // Insert customer information into the database
+            String insertCustomerSQL = """
+            	    INSERT INTO customer (f_name, m_init, l_name, phone_number, email, apt_number, street_number, city)
+            	    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            	    RETURNING customer_id;
+            	""";
 
-            // insert purchase details
-            String insertPurchase = "INSERT INTO purchase (purchase_id, car_id, date_of_purchase, sale_price) VALUES (?, ?, ?, ?)";
-            try (PreparedStatement ps = conn.prepareStatement(insertPurchase)) {
-                ps.setInt(1, generatePurchaseId(conn));
-                ps.setInt(2, Integer.parseInt(carId));
-                ps.setDate(3, java.sql.Date.valueOf(purchaseDate));
-                ps.setBigDecimal(4, new BigDecimal(salePrice));
-                ps.executeUpdate();
-            }
+            	try (PreparedStatement customerStmt = conn.prepareStatement(insertCustomerSQL)) {
+            	    customerStmt.setString(1, firstName);
+            	    customerStmt.setString(2, middleInitial.isEmpty() ? null : middleInitial);
+            	    customerStmt.setString(3, lastName);
+            	    customerStmt.setString(4, phoneNumber);
+            	    customerStmt.setString(5, email);
+            	    customerStmt.setString(6, aptNumber.isEmpty() ? null : aptNumber);
+            	    customerStmt.setString(7, streetNumber);
+            	    customerStmt.setString(8, city);
 
-            // update car availability
-            String updateCar = "UPDATE car SET car_availability = 'sold' WHERE car_id = ?";
-            try (PreparedStatement ps = conn.prepareStatement(updateCar)) {
-                ps.setInt(1, Integer.parseInt(carId));
-                int rowsAffected = ps.executeUpdate();
-                if (rowsAffected == 0) {
-                    throw new SQLException("Car ID not found in database.");
-                }
-            }
+            	    // Execute the query and get the generated customer_id
+            	    ResultSet rs = customerStmt.executeQuery();
+            	    int customerId = -1; // Initialize customerId to catch errors
+            	    if (rs.next()) {
+            	        customerId = rs.getInt("customer_id");
+            	    }
 
-            // validate model
-            String validateModelQuery = "SELECT model FROM vehicle_type vt JOIN car c ON vt.vehicle_id = c.vehicle_id WHERE c.car_id = ?";
-            try (PreparedStatement ps = conn.prepareStatement(validateModelQuery)) {
-                ps.setInt(1, Integer.parseInt(carId));
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) {
-                    String dbModel = rs.getString("model");
-                    if (!dbModel.equalsIgnoreCase(carModel)) {
-                        throw new SQLException("Model mismatch: Expected " + dbModel + ", but got " + carModel);
-                    }
-                } else {
-                    throw new SQLException("Car ID does not exist in database.");
-                }
-            }
+            	    if (customerId == -1) {
+            	        throw new SQLException("Customer ID not generated.");
+            	    }
 
-            conn.commit(); // commit sale transaction
-            response.getWriter().println("Car sale registered successfully!");
-        } catch (SQLException | NumberFormatException e) {
+            	    System.out.println("Generated Customer ID: " + customerId);
+
+            // Insert purchase information into the database
+            String insertPurchaseSQL = """
+            	    INSERT INTO purchase (customer_id, car_id, date_of_purchase, sale_price)
+            	    VALUES (?, ?, ?, ?);
+            	""";
+            	try (PreparedStatement purchaseStmt = conn.prepareStatement(insertPurchaseSQL)) {
+            	    purchaseStmt.setInt(1, customerId); // Use the generated customerId
+            	    purchaseStmt.setInt(2, Integer.parseInt(carId));
+            	    purchaseStmt.setDate(3, java.sql.Date.valueOf(purchaseDate));
+            	    purchaseStmt.setBigDecimal(4, new java.math.BigDecimal(salePrice));
+            	    purchaseStmt.executeUpdate();
+            	}
+            
+
+            conn.commit(); // Commit transaction
+            response.getWriter().println("Sale successfully registered!");
+        } catch (SQLException e) {
             e.printStackTrace();
             response.getWriter().println("An error occurred while registering the sale: " + e.getMessage());
         }
-    }
-
-    private int generatePurchaseId(Connection conn) throws SQLException {
-        String query = "SELECT COALESCE(MAX(purchase_id), 0) + 1 AS next_id FROM purchase";
-        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
-            if (rs.next()) {
-                return rs.getInt("next_id");
-            }
-        }
-        throw new SQLException("Unable to generate purchase ID");
-    }
+    } catch (SQLException e1) {
+		// TODO Auto-generated catch block
+		e1.printStackTrace();
+	}
+}
 }
